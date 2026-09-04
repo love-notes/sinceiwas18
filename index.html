@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
+<title>All About Travis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Caveat:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     EDIT ME: names + copy live in the JS at the bottom too.
+     ============================================================ */
+  :root{
+    --locker-blue:#7c93ac;
+    --locker-blue-dark:#5f7793;
+    --locker-blue-darker:#4a5f78;
+    --cork:#c9a876;
+    --cork-dark:#a9855c;
+    --paper:#faf5ec;
+    --paper-shadow:rgba(30,20,10,0.25);
+    --ink:#2e2a26;
+    --ink-soft:#5a5248;
+    --red:#b3202e;
+    --red-deep:#8f1522;
+    --gold:#e3b23c;
+    --sage:#4f7c55;
+    --white:#fffdf9;
+    --radius-card: 14px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;
+    height:100%;
+    overflow:hidden;
+    background:var(--locker-blue);
+    font-family:'Inter',sans-serif;
+    color:var(--ink);
+    -webkit-tap-highlight-color:transparent;
+  }
+  body{
+    height:100dvh;
+    height:100svh;
+  }
+
+  /* ---------- locker background ---------- */
+  .locker-bg{
+    position:fixed;inset:0;
+    background:
+      repeating-linear-gradient(90deg,
+        var(--locker-blue) 0px, var(--locker-blue) 120px,
+        var(--locker-blue-dark) 120px, var(--locker-blue-dark) 128px),
+      linear-gradient(180deg, var(--locker-blue) 0%, var(--locker-blue-darker) 100%);
+    z-index:0;
+  }
+  .locker-bg::before{
+    content:"";
+    position:absolute;inset:0;
+    background:
+      linear-gradient(180deg, transparent 0 38%, var(--locker-blue-dark) 38% 40%, transparent 40%),
+      linear-gradient(180deg, transparent 0 78%, var(--locker-blue-dark) 78% 80%, transparent 80%);
+    opacity:0.6;
+  }
+  .locker-bg::after{
+    content:"";
+    position:absolute; inset:0;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.18) 100%);
+  }
+
+  /* ---------- app shell ---------- */
+  .app{
+    position:relative;
+    z-index:1;
+    width:100%;
+    height:100%;
+    padding-top:var(--safe-top);
+    padding-bottom:var(--safe-bottom);
+  }
+
+  .page{
+    position:absolute;
+    inset:0;
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:24px 20px;
+    opacity:0;
+    transform: translateY(14px) scale(0.99);
+    transition: opacity .45s ease, transform .45s ease;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .page.active{
+    display:flex;
+    opacity:1;
+    transform: translateY(0) scale(1);
+  }
+
+  /* progress dots */
+  .progress{
+    position:fixed;
+    top:calc(var(--safe-top) + 12px);
+    left:50%;
+    transform:translateX(-50%);
+    display:flex;
+    gap:6px;
+    z-index:20;
+  }
+  .progress span{
+    width:6px;height:6px;border-radius:50%;
+    background:rgba(255,255,255,0.35);
+    transition:background .3s ease, transform .3s ease;
+  }
+  .progress span.done{ background:var(--gold); }
+  .progress span.current{ background:var(--white); transform:scale(1.4); }
+
+  /* ---------- corkboard panel ---------- */
+  .cork-panel{
+    position:relative;
+    width:min(720px, 94vw);
+    max-width:100%;
+    background:
+      radial-gradient(circle at 20% 20%, rgba(255,255,255,0.06), transparent 40%),
+      var(--cork);
+    background-image:
+      radial-gradient(rgba(80,55,25,0.12) 1px, transparent 1.4px);
+    background-size: 8px 8px;
+    background-color:var(--cork);
+    border:10px solid #e8dcc4;
+    border-radius:6px;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.35), inset 0 0 0 2px rgba(160,120,70,0.4);
+    padding:clamp(20px, 4vw, 40px);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:16px;
+  }
+
+  /* ---------- paper note ---------- */
+  .note{
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:3px;
+    box-shadow: 0 10px 24px var(--paper-shadow), 0 2px 4px rgba(0,0,0,0.15);
+    padding:clamp(20px,4vw,36px) clamp(18px,4vw,32px);
+    width:100%;
+    max-width:560px;
+    position:relative;
+    text-align:center;
+  }
+  .note.tilt-l{ transform:rotate(-1.1deg); }
+  .note.tilt-r{ transform:rotate(1.1deg); }
+
+  .tape{
+    position:absolute;
+    top:-14px;left:50%;
+    transform:translateX(-50%) rotate(-3deg);
+    width:70px;height:26px;
+    background:rgba(255,255,255,0.55);
+    border:1px solid rgba(255,255,255,0.7);
+    box-shadow:0 2px 4px rgba(0,0,0,0.15);
+  }
+
+  .paperclip{
+    position:absolute;
+    top:-18px; right:22px;
+    width:22px;height:44px;
+    border:4px solid #b9c0c6;
+    border-radius:12px;
+    background:transparent;
+    box-shadow:2px 2px 3px rgba(0,0,0,0.2);
+    transform:rotate(6deg);
+  }
+
+  /* ---------- stars ---------- */
+  .star{
+    position:absolute;
+    width:44px;height:44px;
+    filter:drop-shadow(0 3px 4px rgba(0,0,0,0.25));
+  }
+  .star svg{width:100%;height:100%;}
+
+  /* ---------- fabric-patch heart (decor) ---------- */
+  .patch-heart{
+    position:absolute;
+    width:56px;height:50px;
+  }
+
+  /* ---------- typography ---------- */
+  .eyebrow{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    font-size:11px;
+    color:var(--ink-soft);
+    margin:0 0 6px;
+  }
+  h1.headline, h2.headline{
+    font-family:'Playfair Display',serif;
+    font-style:italic;
+    color:var(--red);
+    font-weight:700;
+    line-height:1.15;
+    margin:0 0 10px;
+    font-size:clamp(24px, 4.6vw, 38px);
+  }
+  p.body-text{
+    font-size:clamp(14px,2.6vw,16px);
+    line-height:1.55;
+    color:var(--ink-soft);
+    margin:0 0 8px;
+  }
+  .handwritten{
+    font-family:'Caveat',cursive;
+    color:var(--red-deep);
+  }
+
+  /* ---------- heart-letter word (signature element, used sparingly) ---------- */
+  .heart-word{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:6px;
+    margin: 6px 0 4px;
+  }
+  .heart-letter{
+    position:relative;
+    width:clamp(36px,8vw,56px);
+    height:clamp(32px,7vw,50px);
+    display:flex;align-items:center;justify-content:center;
+    opacity:0;
+    transform:scale(0.5) translateY(10px);
+    animation: pop-heart .5s cubic-bezier(.2,1.4,.4,1) forwards;
+  }
+  .heart-letter svg{
+    position:absolute;inset:0;width:100%;height:100%;
+    filter:drop-shadow(0 3px 3px rgba(0,0,0,0.25));
+  }
+  .heart-letter span{
+    position:relative;z-index:1;
+    font-family:'Caveat',cursive;
+    font-weight:700;
+    font-size:clamp(16px,3.6vw,24px);
+    color:var(--red-deep);
+    transform:translateY(-2px);
+  }
+  @keyframes pop-heart{
+    to{ opacity:1; transform:scale(1) translateY(0); }
+  }
+
+  /* ---------- polaroid ---------- */
+  .polaroid{
+    background:var(--white);
+    padding:10px 10px 34px;
+    box-shadow:0 12px 26px rgba(0,0,0,0.35);
+    width:clamp(150px,42vw,220px);
+    border-radius:2px;
+  }
+  .polaroid img{
+    display:block;
+    width:100%;
+    aspect-ratio:4/5;
+    object-fit:cover;
+    background:#d8d2c4;
+    border-radius:1px;
+  }
+  .polaroid.rotL{ transform:rotate(-4deg); }
+  .polaroid.rotR{ transform:rotate(4deg); }
+
+  /* ---------- buttons ---------- */
+  .btn-row{
+    display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+    justify-content:center;
+    margin-top:18px;
+  }
+  button{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:15px;
+    cursor:pointer;
+    border:none;
+    outline-offset:3px;
+  }
+  .btn-primary{
+    background:var(--red);
+    color:var(--white);
+    padding:13px 30px;
+    border-radius:999px;
+    box-shadow:0 6px 0 var(--red-deep), 0 10px 18px rgba(0,0,0,0.25);
+    transition:transform .12s ease, box-shadow .12s ease;
+    min-height:44px;
+  }
+  .btn-primary:active{ transform:translateY(4px); box-shadow:0 2px 0 var(--red-deep); }
+  .btn-primary:disabled{
+    background:#b9a89c; box-shadow:0 6px 0 #93857b; cursor:not-allowed; opacity:0.6;
+  }
+  .btn-ghost{
+    background:transparent;
+    color:var(--ink-soft);
+    padding:13px 26px;
+    border-radius:999px;
+    border:2px solid rgba(46,42,38,0.25);
+    min-height:44px;
+  }
+  .btn-ghost:hover{ border-color:var(--ink-soft); }
+
+  /* ---------- options (quiz) ---------- */
+  .options{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    width:100%;
+    margin-top:18px;
+  }
+  .options.single-col{ grid-template-columns:1fr; }
+  .option{
+    font-family:'Inter',sans-serif;
+    font-size:clamp(13px,2.6vw,15px);
+    font-weight:500;
+    background:var(--white);
+    border:2px solid rgba(46,42,38,0.15);
+    border-radius:10px;
+    padding:14px 12px;
+    text-align:left;
+    color:var(--ink);
+    transition: border-color .18s ease, transform .12s ease, background .18s ease;
+    min-height:48px;
+  }
+  .option:hover{ border-color:var(--gold); }
+  .option:active{ transform:scale(0.98); }
+  .option.correct{
+    background:#eaf3ea;
+    border-color:var(--sage);
+    color:var(--sage);
+    font-weight:700;
+  }
+  .option.wrong{
+    background:#f8e9e9;
+    border-color:var(--red);
+    color:var(--red-deep);
+    animation: shake .4s ease;
+  }
+  .option:disabled{ cursor:default; }
+
+  @keyframes shake{
+    0%,100%{ transform:translateX(0); }
+    20%{ transform:translateX(-6px); }
+    40%{ transform:translateX(6px); }
+    60%{ transform:translateX(-4px); }
+    80%{ transform:translateX(4px); }
+  }
+
+  .feedback{
+    min-height:22px;
+    font-size:13px;
+    font-weight:600;
+    margin-top:12px;
+    letter-spacing:0.01em;
+  }
+  .feedback.wrong-fb{ color:var(--red-deep); }
+  .feedback.right-fb{ color:var(--sage); }
+
+  /* fill-in-the-blank */
+  .fill-wrap{
+    width:100%;
+    margin-top:18px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+  }
+  .fill-input{
+    width:100%;
+    max-width:400px;
+    font-family:'Caveat',cursive;
+    font-size:22px;
+    text-align:center;
+    padding:10px 14px;
+    border:none;
+    border-bottom:3px solid var(--ink-soft);
+    background:transparent;
+    color:var(--red-deep);
+  }
+  .fill-input:focus{ outline:none; border-color:var(--red); }
+  .fill-input::placeholder{ color:rgba(90,82,72,0.4); font-family:'Inter',sans-serif; font-size:14px;}
+
+  /* rules list */
+  .rules-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:12px;
+    width:100%;
+    margin-top:6px;
+  }
+  .rule-card{
+    background:var(--white);
+    border-radius:4px;
+    padding:14px 10px;
+    box-shadow:0 6px 14px rgba(0,0,0,0.2);
+    text-align:center;
+    position:relative;
+  }
+  .rule-card .tag{
+    position:absolute;top:-11px;left:50%;transform:translateX(-50%) rotate(-2deg);
+    background:#efe6cf;
+    font-family:'Caveat',cursive;
+    font-size:14px;
+    padding:2px 10px;
+    box-shadow:0 2px 3px rgba(0,0,0,0.15);
+  }
+  .rule-card p{
+    font-size:clamp(11px,2.3vw,13px);
+    color:var(--ink-soft);
+    margin:8px 0 0;
+    line-height:1.4;
+    font-weight:600;
+  }
+
+  /* music toggle */
+  .music-toggle{
+    position:fixed;
+    top:calc(var(--safe-top) + 10px);
+    right:14px;
+    z-index:30;
+    width:42px;height:42px;
+    border-radius:50%;
+    background:rgba(255,253,249,0.9);
+    box-shadow:0 4px 10px rgba(0,0,0,0.25);
+    display:flex;align-items:center;justify-content:center;
+    font-size:18px;
+    padding:0;
+  }
+
+  /* champion photo row */
+  .champ-photos{
+    display:flex;
+    gap:14px;
+    justify-content:center;
+    align-items:flex-start;
+    flex-wrap:wrap;
+    margin-top:4px;
+    width:100%;
+  }
+
+  /* champion / score */
+  .score-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    background:var(--gold);
+    color:var(--red-deep);
+    font-weight:700;
+    padding:6px 16px;
+    border-radius:999px;
+    font-size:14px;
+    margin-top:6px;
+  }
+
+  /* letter page */
+  .letter-page .cork-panel{ background:var(--paper); border-color:#e8dcc4; }
+  .letter-body{
+    font-family:'Caveat',cursive;
+    font-size:clamp(19px,3.4vw,24px);
+    line-height:1.6;
+    color:var(--ink);
+    text-align:left;
+    white-space:pre-wrap;
+    height:min(46vh, 340px);
+    overflow-y:auto;
+    padding-right:10px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .letter-body::-webkit-scrollbar{ width:6px; }
+  .letter-body::-webkit-scrollbar-track{ background:rgba(46,42,38,0.08); border-radius:3px; }
+  .letter-body::-webkit-scrollbar-thumb{ background:var(--red); border-radius:3px; }
+  .letter-body .cursor{
+    display:inline-block;
+    width:2px;height:1em;
+    background:var(--red-deep);
+    vertical-align:middle;
+    animation:blink 1s step-start infinite;
+  }
+  @keyframes blink{ 50%{ opacity:0; } }
+
+  /* falling hearts ambient (champion + letter) */
+  .float-hearts{
+    position:fixed; inset:0; pointer-events:none; z-index:2; overflow:hidden;
+  }
+  .float-hearts span{
+    position:absolute; top:-10%;
+    font-size:18px;
+    opacity:0.75;
+    animation: fall linear infinite;
+  }
+  @keyframes fall{
+    to{ transform:translateY(115vh) rotate(25deg); opacity:0; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; }
+  }
+
+  /* mobile tuning */
+  @media (max-width:520px){
+    .options{ grid-template-columns:1fr; }
+    .rules-grid{ grid-template-columns:1fr; }
+    .star{ width:32px;height:32px; }
+    .polaroid{ width:38vw; }
+  }
+
+  /* hide decorative stars/hearts on very short screens to avoid overlap */
+  @media (max-height:640px){
+    .deco-extra{ display:none; }
+  }
+
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+<div class="locker-bg"></div>
+
+<audio id="bgMusic" src="18.mp3" loop preload="auto"></audio>
+<button class="music-toggle" id="musicToggle" aria-label="toggle music">🔇</button>
+
+<div class="progress" id="progressDots"></div>
+
+<div class="app" id="app">
+
+  <!-- PAGE 0 — COVER -->
+  <section class="page" data-page="0">
+    <div class="cork-panel" style="max-width:420px;">
+      <div class="star deco-extra" style="top:-22px;left:-14px;">
+        <svg viewBox="0 0 100 100"><polygon points="50,3 61,37 97,37 68,59 79,94 50,73 21,94 32,59 3,37 39,37" fill="#e3b23c"/></svg>
+      </div>
+      <div class="star deco-extra" style="bottom:-18px;right:-16px;transform:rotate(18deg);">
+        <svg viewBox="0 0 100 100"><polygon points="50,3 61,37 97,37 68,59 79,94 50,73 21,94 32,59 3,37 39,37" fill="#b3202e"/></svg>
+      </div>
+      <div class="note">
+        <div class="tape"></div>
+        <p class="eyebrow">for you, Travis</p>
+        <h1 class="headline">are you ready<br>to play?</h1>
+        <p class="body-text">a tiny quiz about us. no pressure, I already love you either way.</p>
+        <div class="btn-row">
+          <button class="btn-primary" id="btnYes">yes!</button>
+          <button class="btn-ghost" id="btnWait">wait.</button>
+        </div>
+        <p class="feedback" id="waitMsg"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAGE 1 — RULES -->
+  <section class="page" data-page="1">
+    <div class="cork-panel">
+      <div class="heart-word" id="rulesWord"></div>
+      <div class="rules-grid">
+        <div class="rule-card"><span class="tag">one</span><p>heii, please answer honestly!</p></div>
+        <div class="rule-card"><span class="tag">two</span><p>getting one wrong just means we need a redo date</p></div>
+        <div class="rule-card"><span class="tag">three</span><p>there's a letter waiting for you at the end 💌</p></div>
+      </div>
+      <div class="btn-row"><button class="btn-primary" id="btnRulesNext">i'm ready</button></div>
+    </div>
+  </section>
+
+  <!-- PAGE 2 — TITLE / INTRO -->
+  <section class="page" data-page="2">
+    <div class="cork-panel">
+      <div class="star deco-extra" style="top:8px;left:12px;">
+        <svg viewBox="0 0 100 100"><polygon points="50,3 61,37 97,37 68,59 79,94 50,73 21,94 32,59 3,37 39,37" fill="#faf5ec"/></svg>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:20px;">
+        <div class="polaroid rotL">
+          <img src="na1.jpg" alt="Us">
+        </div>
+        <div class="note tilt-r" style="max-width:340px;">
+          <div class="paperclip"></div>
+          <p class="eyebrow">episode one</p>
+          <h1 class="headline">all about<br>Travis &amp; Me</h1>
+          <p class="body-text">four questions. one score that doesn't matter. one letter that does.</p>
+        </div>
+      </div>
+      <div class="btn-row"><button class="btn-primary" id="btnStartQuiz">let's start</button></div>
+    </div>
+  </section>
+
+  <!-- PAGE 3 — Q1 multiple choice -->
+  <section class="page" data-page="3">
+    <div class="cork-panel">
+      <p class="eyebrow">question 1 · multiple choice</p>
+      <h2 class="headline" style="font-size:clamp(20px,4vw,28px);">When did we start dating?</h2>
+      <div class="options" id="q1options"></div>
+      <p class="feedback" id="q1feedback"></p>
+      <div class="btn-row"><button class="btn-primary" id="q1next" disabled>next</button></div>
+    </div>
+  </section>
+
+  <!-- PAGE 4 — Q2 true/false -->
+  <section class="page" data-page="4">
+    <div class="cork-panel">
+      <p class="eyebrow">question 2 · true or false</p>
+      <h2 class="headline" style="font-size:clamp(20px,4vw,28px);">I love pink.</h2>
+      <div class="options single-col" id="q2options" style="max-width:340px;"></div>
+      <p class="feedback" id="q2feedback"></p>
+      <div class="btn-row"><button class="btn-primary" id="q2next" disabled>next</button></div>
+    </div>
+  </section>
+
+  <!-- PAGE 5 — Q3 fill in the blank -->
+  <section class="page" data-page="5">
+    <div class="cork-panel">
+      <p class="eyebrow">question 3 · complete the sentence</p>
+      <h2 class="headline" style="font-size:clamp(20px,4vw,28px);">your name in my contacts is</h2>
+      <div class="fill-wrap">
+        <input type="text" class="fill-input" id="q3input" placeholder="type it here">
+        <button class="btn-primary" id="q3check">check</button>
+        <p class="feedback" id="q3feedback"></p>
+      </div>
+      <div class="btn-row"><button class="btn-primary" id="q3next" disabled>next</button></div>
+    </div>
+  </section>
+
+  <!-- PAGE 6 — Q4 multiple choice with photo -->
+  <section class="page" data-page="6">
+    <div class="cork-panel">
+      <div style="display:flex; gap:18px; align-items:center; flex-wrap:wrap; justify-content:center;">
+        <div class="polaroid rotR" style="width:clamp(120px,30vw,170px);">
+          <img src="na2.jpg" alt="Flowers">
+        </div>
+        <div style="max-width:320px;">
+          <p class="eyebrow">question 4 · multiple choice</p>
+          <h2 class="headline" style="font-size:clamp(19px,3.8vw,26px); text-align:left;">Who’s always the first to say good morning?</h2>
+        </div>
+      </div>
+      <div class="options" id="q4options"></div>
+      <p class="feedback" id="q4feedback"></p>
+      <div class="btn-row"><button class="btn-primary" id="q4next" disabled>see my score</button></div>
+    </div>
+  </section>
+
+  <!-- PAGE 7 — CHAMPION -->
+  <section class="page" data-page="7">
+    <div class="cork-panel">
+      <div class="heart-word" id="champWord"></div>
+      <div class="champ-photos">
+        <div class="polaroid rotL" style="width:clamp(84px,21vw,120px);"><img src="na3.jpg" alt="You"></div>
+        <div class="polaroid" style="width:clamp(84px,21vw,120px);"><img src="na4.jpg" alt="Us"></div>
+        <div class="polaroid rotR" style="width:clamp(84px,21vw,120px);"><img src="na5.jpg" alt="Us"></div>
+      </div>
+      <div class="note" style="max-width:360px; margin-top:8px;">
+        <p class="eyebrow">congratulations</p>
+        <h1 class="headline" style="font-size:clamp(22px,4vw,30px);">Travis</h1>
+        <p class="body-text" id="champText">you are the champion of my heart. well, you already won that a while ago.</p>
+        <div class="score-badge" id="scoreBadge"></div>
+      </div>
+      <div class="btn-row"><button class="btn-primary" id="btnToLetter">open your letter</button></div>
+    </div>
+  </section>
+
+  <!-- PAGE 8 — SWEET LETTER -->
+  <section class="page letter-page" data-page="8">
+    <div class="cork-panel">
+      <p class="eyebrow">sweet letter</p>
+      <div class="letter-body" id="letterBody"></div>
+      <div class="btn-row" id="letterBtnRow" style="opacity:0; transition:opacity .6s ease;">
+        <button class="btn-ghost" id="btnReplay">play again</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="float-hearts" id="floatHearts"></div>
+
+<script>
+/* ============================================================
+   EDIT ME — quick reference:
+   - RECIPIENT_NAME / SIGNATURE : names used in copy + letter
+   - QUESTIONS array further down: change text/options/correctIndex
+   - Q3_ACCEPTED: array of acceptable words for the fill-in blank
+   - LETTER_TEXT: the final letter, edit freely
+   - Images expected in the SAME folder as this html file:
+       na1.jpg  -> title page hero photo
+       na2.jpg  -> question 4 flower photo
+       na3.jpg  -> champion page photo (left)
+       na4.jpg  -> champion page photo (middle)
+       na5.jpg  -> champion page photo (right)
+   - Music expected in the SAME folder as this html file:
+       pilihanku.mp3 -> background music, starts once user taps "yes!"
+         and can be muted/unmuted anytime with the button top-right
+   ============================================================ */
+const RECIPIENT_NAME = "Travis";
+const SIGNATURE = "me";
+
+const TOTAL_PAGES = 9;
+let currentPage = 0;
+let score = 0;
+
+const app = document.getElementById('app');
+const pages = document.querySelectorAll('.page');
+const progressDots = document.getElementById('progressDots');
+
+// build progress dots
+for(let i=0;i<TOTAL_PAGES;i++){
+  const d = document.createElement('span');
+  d.dataset.i = i;
+  progressDots.appendChild(d);
+}
+
+function updateProgress(){
+  [...progressDots.children].forEach((d,i)=>{
+    d.classList.toggle('current', i===currentPage);
+    d.classList.toggle('done', i<currentPage);
+  });
+}
+
+function goTo(pageIndex){
+  pages.forEach(p=>{
+    p.classList.toggle('active', parseInt(p.dataset.page)===pageIndex);
+  });
+  currentPage = pageIndex;
+  updateProgress();
+  window.scrollTo(0,0);
+  if(pageIndex===7){ renderChampion(); startFloatingHearts('🤍','🌸'); }
+  if(pageIndex===8){ typeLetter(); }
+}
+
+goTo(0);
+
+/* ---------------- MUSIC ---------------- */
+const bgMusic = document.getElementById('bgMusic');
+const musicToggle = document.getElementById('musicToggle');
+let musicStarted = false;
+let musicPlaying = false;
+function updateMusicIcon(){ musicToggle.textContent = musicPlaying ? '🔊' : '🔇'; }
+function startMusic(){
+  if(musicStarted) return;
+  musicStarted = true;
+  bgMusic.volume = 0.5;
+  bgMusic.play().then(()=>{ musicPlaying = true; updateMusicIcon(); }).catch(()=>{ musicPlaying = false; updateMusicIcon(); });
+}
+musicToggle.addEventListener('click', ()=>{
+  if(!musicStarted){ startMusic(); return; }
+  if(bgMusic.paused){ bgMusic.play(); musicPlaying = true; } else { bgMusic.pause(); musicPlaying = false; }
+  updateMusicIcon();
+});
+
+/* ---------------- COVER ---------------- */
+document.getElementById('btnYes').addEventListener('click', ()=>{ startMusic(); goTo(1); });
+const waitMsg = document.getElementById('waitMsg');
+let waitClicks = 0;
+document.getElementById('btnWait').addEventListener('click', (e)=>{
+  waitClicks++;
+  const msgs = [
+    "why... :(",
+    "pfftt, you're so mean!",
+    "please tap the red one!!"
+  ];
+  waitMsg.textContent = msgs[Math.min(waitClicks-1, msgs.length-1)];
+  waitMsg.classList.add('right-fb');
+  e.target.style.transform = 'scale(0.96)';
+  setTimeout(()=>{ e.target.style.transform=''; }, 150);
+});
+
+/* ---------------- HEART WORD BUILDER ---------------- */
+function heartSVG(){
+  return `<svg viewBox="0 0 100 90"><path d="M50 85 C20 62 2 44 2 24 C2 8 15 -2 30 4 C40 8 47 17 50 24 C53 17 60 8 70 4 C85 -2 98 8 98 24 C98 44 80 62 50 85 Z" fill="#fffdf9" stroke="#b3202e" stroke-width="7"/></svg>`;
+}
+function buildHeartWord(containerId, word, delayStep=90){
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  [...word].forEach((ch,i)=>{
+    const div = document.createElement('div');
+    div.className = 'heart-letter';
+    div.style.animationDelay = (i*delayStep)+'ms';
+    div.innerHTML = heartSVG() + `<span>${ch}</span>`;
+    el.appendChild(div);
+  });
+}
+buildHeartWord('rulesWord','rules');
+
+document.getElementById('btnRulesNext').addEventListener('click', ()=>goTo(2));
+document.getElementById('btnStartQuiz').addEventListener('click', ()=>goTo(3));
+
+/* ---------------- QUIZ ENGINE ---------------- */
+function renderOptions(containerId, options, correctIndex, onCorrect, feedbackId, nextBtnId){
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  let answered = false;
+  options.forEach((optText, idx)=>{
+    const btn = document.createElement('button');
+    btn.className = 'option';
+    btn.textContent = optText;
+    btn.addEventListener('click', ()=>{
+      if(answered) return;
+      const fb = document.getElementById(feedbackId);
+      if(idx===correctIndex){
+        answered = true;
+        btn.classList.add('correct');
+        fb.textContent = "yes! exactly right";
+        fb.className = 'feedback right-fb';
+        [...container.children].forEach(c=>c.disabled=true);
+        document.getElementById(nextBtnId).disabled = false;
+        onCorrect();
+      } else {
+        btn.classList.add('wrong');
+        fb.textContent = "hmm, not quite, try again";
+        fb.className = 'feedback wrong-fb';
+        setTimeout(()=>btn.classList.remove('wrong'), 450);
+      }
+    });
+    container.appendChild(btn);
+  });
+}
+
+/* Q1 */
+renderOptions('q1options',
+  ["5 july","3 july","6 july","7 july"],
+  0,
+  ()=>{ score++; },
+  'q1feedback','q1next'
+);
+document.getElementById('q1next').addEventListener('click', ()=>goTo(4));
+
+/* Q2 - true/false */
+renderOptions('q2options', ["True","False"], 0, ()=>{ score++; }, 'q2feedback','q2next');
+document.getElementById('q2next').addEventListener('click', ()=>goTo(5));
+
+/* Q3 - fill in the blank */
+const Q3_ACCEPTED = ["bebe"]; // EDIT ME: add every nickname you use
+const q3input = document.getElementById('q3input');
+const q3feedback = document.getElementById('q3feedback');
+const q3next = document.getElementById('q3next');
+let q3answered = false;
+document.getElementById('q3check').addEventListener('click', ()=>{
+  if(q3answered) return;
+  const val = q3input.value.trim().toLowerCase();
+  if(val.length===0) return;
+  if(Q3_ACCEPTED.some(word=>val.includes(word))){
+    q3answered = true;
+    score++;
+    q3feedback.textContent = "you're soo smart!";
+    q3feedback.className = 'feedback right-fb';
+    q3input.disabled = true;
+    q3next.disabled = false;
+  } else {
+    q3feedback.textContent = "huh? not quite what I usually call you, try again";
+    q3feedback.className = 'feedback wrong-fb';
+    q3input.style.animation = 'shake .4s ease';
+    setTimeout(()=>{ q3input.style.animation=''; }, 400);
+  }
+});
+q3next.addEventListener('click', ()=>goTo(6));
+
+/* Q4 */
+renderOptions('q4options',
+  ["barbie","rua","travis","papaw"],
+  2,
+  ()=>{ score++; },
+  'q4feedback','q4next'
+);
+document.getElementById('q4next').addEventListener('click', ()=>goTo(7));
+
+/* ---------------- CHAMPION ---------------- */
+buildHeartWord('champWord','champ');
+function renderChampion(){
+  document.getElementById('scoreBadge').textContent = `${score} / 4 correct`;
+  const champText = document.getElementById('champText');
+  if(score===4){
+    champText.textContent = "perfect score. You really do pay attention, okay, that's attractive.";
+  } else if(score>=2){
+    champText.textContent = "pretty solid! score doesn't matter though, you already won my heart a while ago.";
+  } else {
+    champText.textContent = "okay so maybe we need a few more dates to study for this. I don't mind at all.";
+  }
+}
+document.getElementById('btnToLetter').addEventListener('click', ()=>goTo(8));
+
+/* ---------------- LETTER ---------------- */
+const LETTER_TEXT =
+`haii bebe
+
+I made this whole silly little game because I wanted an excuse to make something just for you, wrapped up in our inside jokes and the small details I never get tired of. every question in here is a tiny piece of us, the good morning texts i always wake up to, the little updates you send throughout the day.
+
+I don't really need a big reason to tell you this, but here it is anyway, you make ordinary days feel like something worth keeping. thank you for being patient with me, for laughing at my terrible jokes, and for always picking up when I call, even when it's late and I have nothing important to say.
+
+this is just a small thank you for being exactly who you are. there's more where this came from.
+
+yours!`;
+
+let letterTyped = false;
+function typeLetter(){
+  if(letterTyped) return;
+  letterTyped = true;
+  const el = document.getElementById('letterBody');
+  el.innerHTML = '';
+  const cursor = document.createElement('span');
+  cursor.className = 'cursor';
+  el.appendChild(cursor);
+  let i = 0;
+  const speed = 50;
+  function step(){
+    if(i < LETTER_TEXT.length){
+      cursor.insertAdjacentText('beforebegin', LETTER_TEXT[i]);
+      i++;
+      el.scrollTop = el.scrollHeight;
+      setTimeout(step, speed);
+    } else {
+      cursor.remove();
+      document.getElementById('letterBtnRow').style.opacity = '1';
+      startFloatingHearts('🌸','🤍');
+    }
+  }
+  setTimeout(step, 400);
+}
+document.getElementById('btnReplay').addEventListener('click', ()=>{
+  score = 0;
+  letterTyped = false;
+  // reset quiz UI
+  [...document.querySelectorAll('.option')].forEach(o=>{o.disabled=false; o.classList.remove('correct','wrong');});
+  ['q1feedback','q2feedback','q4feedback'].forEach(id=>document.getElementById(id).textContent='');
+  q3feedback.textContent=''; q3input.value=''; q3input.disabled=false; q3answered=false;
+  ['q1next','q2next','q3next','q4next'].forEach(id=>document.getElementById(id).disabled=true);
+  document.getElementById('letterBody').innerHTML='';
+  document.getElementById('letterBtnRow').style.opacity='0';
+  goTo(0);
+});
+
+/* ---------------- ambient floating hearts ---------------- */
+function startFloatingHearts(a,b){
+  const wrap = document.getElementById('floatHearts');
+  wrap.innerHTML = '';
+  for(let i=0;i<14;i++){
+    const s = document.createElement('span');
+    s.textContent = Math.random()>0.5? a : b;
+    s.style.left = Math.random()*100+'%';
+    s.style.animationDuration = (6+Math.random()*6)+'s';
+    s.style.animationDelay = (Math.random()*6)+'s';
+    s.style.fontSize = (14+Math.random()*14)+'px';
+    wrap.appendChild(s);
+  }
+}
+</script>
+</body>
+</html>
